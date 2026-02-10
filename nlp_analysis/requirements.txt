@@ -1,0 +1,49 @@
+# Основные библиотеки
+pandas>=2.0.0
+numpy>=1.24.0
+
+# NLP и семантический поиск
+sentence-transformers>=2.2.0
+transformers>=4.30.0
+torch>=2.0.0
+
+# Векторный поиск
+faiss-cpu>=1.7.4  # Для GPU: faiss-gpu
+# альтернативы:
+# qdrant-client>=1.5.0
+# chromadb>=0.4.0
+
+# Обработка текста
+spacy>=3.6.0
+textblob>=0.17.1
+pymorphy3>=1.2.0  # Морфология для русского
+razdel>=0.5.0  # Токенизация для русского
+
+# Topic modeling
+bertopic>=0.15.0
+umap-learn>=0.5.0
+hdbscan>=0.8.0
+
+# Веб-интерфейс
+streamlit>=1.25.0
+plotly>=5.15.0
+
+# API
+fastapi>=0.100.0
+uvicorn>=0.23.0
+pydantic>=2.0.0
+
+# Работа с данными
+scikit-learn>=1.3.0
+scipy>=1.11.0
+nltk>=3.8.0
+
+# Утилиты
+tqdm>=4.65.0
+python-dotenv>=1.0.0
+joblib>=1.3.0
+
+# Опционально для продвинутой аналитики
+# pyabsa>=2.0.0  # Aspect-Based Sentiment Analysis
+# detoxify>=0.5.0  # Детекция токсичности
+# langdetect>=1.0.9  # Определение языка

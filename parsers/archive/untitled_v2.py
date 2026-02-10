@@ -1,0 +1,407 @@
+"""
+УЛУЧШЕННЫЙ ПАРСЕР 2GIS v2
+Использует window.initialState для извлечения JSON данных напрямую
+Основан на подходе из https://github.com/interlark/parser-2gis
+"""
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
+import time
+import json
+from typing import List
+from dataclasses import dataclass, asdict
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
+
+@dataclass
+class Review:
+    author: str
+    author_reviews_count: int
+    rating: float
+    text: str
+    date: str
+    is_verified: bool  # True = подтвержден, False = на модерации/скрыт
+
+@dataclass
+class Place:
+    name: str
+    address: str
+    category: str
+    rating: float
+    reviews_count: int
+    phone: str
+    url: str
+    reviews: List[Review]
+
+class TwoGISParserV2:
+    """Улучшенный парсер используя window.initialState"""
+
+    def __init__(self, headless: bool = False):
+        self.driver = self._init_driver(headless)
+        self.wait = WebDriverWait(self.driver, 15)
+
+    def _init_driver(self, headless: bool):
+        options = Options()
+        if headless:
+            options.add_argument('--headless=new')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
+        options.add_argument('--window-size=1920,1080')
+
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
+        logger.info("✅ Chrome запущен")
+        self.api_reviews = {}  # Хранилище для собранных отзывов
+        return driver
+
+    def load_all_reviews(self, url: str):
+        """Загружает ВСЕ отзывы через скроллинг + перехват API"""
+        logger.info(f"📄 Загружаю все отзывы с: {url}")
+
+        self.driver.get(url)
+        time.sleep(5)
+
+        # Переходим на вкладку отзывов
+        reviews_url = url.split('?')[0] + '/tab/reviews'
+        logger.info(f"  ➡️ Переход на вкладку отзывов...")
+        self.driver.get(reviews_url)
+        time.sleep(5)
+
+        # Скроллим и кликаем "Показать ещё" пока можем
+        # Собираем уникальные отзывы из initialState после каждого клика
+        logger.info(f"  📜 Загружаю все отзывы (скроллинг + клик)...")
+        click_count = 0
+        max_clicks = 300  # Максимум кликов
+        all_reviews_dict = {}  # Словарь для хранения уникальных отзывов по ID
+
+        while click_count < max_clicks:
+            # Скроллим вниз
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(1)
+
+            # Читаем initialState и собираем отзывы
+            try:
+                current_state = self.driver.execute_script('return window.initialState')
+                current_reviews = current_state.get('data', {}).get('review', {})
+
+                # Добавляем новые отзывы в общий словарь
+                for review_id, review_obj in current_reviews.items():
+                    if review_id not in all_reviews_dict:
+                        all_reviews_dict[review_id] = review_obj
+
+            except Exception as e:
+                logger.debug(f"Ошибка чтения initialState: {e}")
+
+            # Ищем кнопку "Показать ещё" и кликаем
+            try:
+                button = self.driver.execute_script("""
+                    const buttons = document.querySelectorAll('button, div[role="button"], a');
+                    for (let btn of buttons) {
+                        if (btn.textContent.includes('Показать') ||
+                            btn.textContent.includes('Show more') ||
+                            btn.textContent.includes('ещё') ||
+                            btn.textContent.includes('еще')) {
+                            return btn;
+                        }
+                    }
+                    return null;
+                """)
+
+                if button:
+                    # Скроллим к кнопке и кликаем
+                    self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", button)
+                    time.sleep(0.3)
+                    self.driver.execute_script("arguments[0].click();", button)
+                    click_count += 1
+
+                    if click_count % 10 == 0:
+                        logger.info(f"    Клик #{click_count}: собрано {len(all_reviews_dict)} уникальных отзывов")
+
+                    time.sleep(0.8)  # Ждем загрузки новых отзывов
+                else:
+                    # Кнопка не найдена - все загружены
+                    logger.info(f"  ✅ Кнопка 'Показать ещё' не найдена!")
+                    logger.info(f"  💾 Итого собрано {len(all_reviews_dict)} уникальных отзывов")
+                    break
+
+            except Exception as e:
+                logger.debug(f"    Ошибка: {e}")
+                break
+
+        # Сохраняем собранные отзывы
+        self.api_reviews = all_reviews_dict
+
+    def get_place_data(self, url: str) -> Place:
+        """Получение данных через window.initialState"""
+        logger.info(f"📄 Парсим: {url}")
+
+        # Сначала загружаем ВСЕ отзывы
+        self.load_all_reviews(url)
+
+        # Извлекаем window.initialState со всеми отзывами
+        try:
+            initial_state = self.driver.execute_script('return window.initialState')
+
+            # Сохраняем для отладки
+            with open('initial_state.json', 'w', encoding='utf-8') as f:
+                json.dump(initial_state, f, ensure_ascii=False, indent=2)
+            logger.info("💾 initialState сохранен в initial_state.json")
+
+            # Извлекаем данные организации
+            profile_data = initial_state.get('data', {}).get('entity', {}).get('profile', {})
+
+            if not profile_data:
+                logger.error("❌ Данные организации не найдены в initialState")
+                return None
+
+            # Берем первый объект
+            org_data = list(profile_data.values())[0]['data']
+
+            # Основные данные
+            name = org_data.get('name', 'Неизвестно')
+            address_obj = org_data.get('address', {})
+            address = address_obj.get('name', 'Не указан')
+
+            # Категория
+            rubrics = org_data.get('rubrics', [])
+            category = rubrics[0].get('name', 'Не указана') if rubrics else 'Не указана'
+
+            # Рейтинг и отзывы
+            reviews_obj = org_data.get('reviews', {})
+            rating = reviews_obj.get('general_rating', 0.0)
+            reviews_count = reviews_obj.get('general_review_count', 0)
+
+            # Телефон
+            contact_groups = org_data.get('contact_groups', [])
+            phone = "Не указан"
+            for group in contact_groups:
+                contacts = group.get('contacts', [])
+                for contact in contacts:
+                    if contact.get('type') == 'phone':
+                        phone = contact.get('text', phone)
+                        break
+
+            logger.info(f"✓ {name}")
+            logger.info(f"  Рейтинг: {rating}, Отзывов: {reviews_count}")
+
+            # Собираем отзывы (из API если есть, иначе из initialState)
+            if self.api_reviews:
+                reviews = self.get_reviews_from_api()
+            else:
+                reviews = self.get_reviews(initial_state)
+
+            return Place(
+                name=name,
+                address=address,
+                category=category,
+                rating=rating,
+                reviews_count=reviews_count,
+                phone=phone,
+                url=url,
+                reviews=reviews
+            )
+
+        except Exception as e:
+            logger.error(f"❌ Ошибка извлечения initialState: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    def get_reviews_from_api(self) -> List[Review]:
+        """Извлечение отзывов из собранных данных initialState"""
+        reviews = []
+
+        logger.info(f"  🔍 Найдено {len(self.api_reviews)} отзывов")
+
+        for review_id, review_obj in self.api_reviews.items():
+            try:
+                review_data = review_obj.get('data', {})
+
+                # Извлекаем данные отзыва
+                text = review_data.get('text', '')
+                if len(text) < 30:
+                    continue
+
+                rating = review_data.get('rating', 5.0)
+
+                # Дата
+                date_edited = review_data.get('date_edited', '')
+                date_created = review_data.get('date_created', '')
+                date_str = date_edited if date_edited else date_created
+                date = date_str.split('T')[0] if 'T' in date_str else ''
+
+                # Данные пользователя
+                user = review_data.get('user', {})
+                author = user.get('name', 'Пользователь 2GIS')
+                author_reviews_count = user.get('reviews_count', 0)
+
+                # Статус модерации
+                is_hidden = review_data.get('is_hidden', False)
+                is_verified = not is_hidden
+
+                reviews.append(Review(
+                    author=author,
+                    author_reviews_count=author_reviews_count,
+                    rating=rating,
+                    text=text[:500],
+                    date=date,
+                    is_verified=is_verified
+                ))
+
+            except Exception as e:
+                logger.debug(f"Ошибка обработки отзыва {review_id}: {e}")
+                continue
+
+        # Статистика
+        verified_count = sum(1 for r in reviews if r.is_verified)
+        unverified_count = len(reviews) - verified_count
+
+        logger.info(f"  ✅ Извлечено {len(reviews)} отзывов (подтверждено: {verified_count}, на модерации: {unverified_count})")
+        return reviews
+
+    def get_reviews(self, initial_state: dict) -> List[Review]:
+        """Извлечение отзывов из initialState"""
+        reviews = []
+
+        try:
+            # Ищем отзывы в initialState
+            # Структура: initialState.data.review[id] = {data: {...}}
+            reviews_data = initial_state.get('data', {}).get('review', {})
+
+            if not reviews_data:
+                logger.info("  ℹ️ Отзывы не найдены в initialState")
+                return []
+
+            logger.info(f"  🔍 Найдено {len(reviews_data)} отзывов в initialState")
+
+            for review_id, review_obj in reviews_data.items():
+                try:
+                    review_data = review_obj.get('data', {})
+
+                    # Извлекаем данные отзыва
+                    text = review_data.get('text', '')
+                    if len(text) < 30:
+                        continue
+
+                    rating = review_data.get('rating', 5.0)
+
+                    # Дата: используем date_edited если есть (для отредактированных отзывов),
+                    # иначе date_created (для новых отзывов)
+                    # Это соответствует тому, что показывает 2GIS на сайте
+                    date_edited = review_data.get('date_edited', '')
+                    date_created = review_data.get('date_created', '')
+                    date_str = date_edited if date_edited else date_created
+                    date = date_str.split('T')[0] if 'T' in date_str else ''
+
+                    # Данные пользователя
+                    user = review_data.get('user', {})
+                    author = user.get('name', 'Пользователь 2GIS')
+                    author_reviews_count = user.get('reviews_count', 0)
+
+                    # Статус модерации (is_hidden = True означает скрыт/на модерации)
+                    is_hidden = review_data.get('is_hidden', False)
+                    is_verified = not is_hidden  # Инвертируем: True = подтвержден, False = скрыт
+
+                    reviews.append(Review(
+                        author=author,
+                        author_reviews_count=author_reviews_count,
+                        rating=rating,
+                        text=text[:500],
+                        date=date,
+                        is_verified=is_verified
+                    ))
+
+                except Exception as e:
+                    logger.debug(f"Ошибка обработки отзыва {review_id}: {e}")
+                    continue
+
+            # Статистика по статусам
+            verified_count = sum(1 for r in reviews if r.is_verified)
+            unverified_count = len(reviews) - verified_count
+
+            logger.info(f"  ✅ Извлечено {len(reviews)} отзывов (подтверждено: {verified_count}, на модерации: {unverified_count})")
+            return reviews
+
+        except Exception as e:
+            logger.error(f"  ❌ Ошибка извлечения отзывов: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+
+    def save_to_json(self, places: List[Place], filename: str):
+        """Сохранение в JSON"""
+        data = [asdict(place) for place in places]
+
+        with open(filename, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+        logger.info(f"\n💾 Данные сохранены в {filename}")
+
+    def close(self):
+        """Закрытие браузера"""
+        self.driver.quit()
+        logger.info("👋 Готово!")
+
+# ===================================================================
+# ЗАПУСК
+# ===================================================================
+if __name__ == "__main__":
+    import sys
+    import io
+    # Фикс кодировки для Windows
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+    print("=" * 70)
+    print("🚀 ПАРСЕР 2GIS v2 - window.initialState подход")
+    print("=" * 70)
+    print()
+
+    scraper = TwoGISParserV2(headless=False)
+
+    try:
+        # Тестируем на одном URL
+        url = "https://2gis.kz/almaty/firm/70000001057770550"
+
+        place = scraper.get_place_data(url)
+
+        if place:
+            print("\n" + "=" * 70)
+            print("📊 РЕЗУЛЬТАТЫ")
+            print("=" * 70)
+            print(f"\n{place.name}")
+            print(f" 📍 {place.address}")
+            print(f" 📂 {place.category}")
+            print(f" ⭐ {place.rating} ({place.reviews_count} отзывов)")
+            print(f" 📞 {place.phone}")
+            print(f" 💬 Собрано отзывов: {len(place.reviews)}")
+
+            if place.reviews:
+                print(f"\n 📝 Примеры отзывов:")
+                for j, review in enumerate(place.reviews[:5], 1):
+                    count_str = f" ({review.author_reviews_count} отз.)" if review.author_reviews_count > 0 else ""
+                    date_str = f" [{review.date}]" if review.date else ""
+                    status_str = "" if review.is_verified else " [НЕ ПОДТВЕРЖДЕН]"
+                    print(f" {j}. {review.author}{count_str} ⭐{review.rating}{date_str}{status_str}")
+                    print(f"    \"{review.text[:80]}...\"")
+
+            scraper.save_to_json([place], "2gis_result_v2.json")
+
+            print("\n" + "=" * 70)
+            print("✅ ГОТОВО! Проверьте файл: 2gis_result_v2.json")
+            print("=" * 70)
+        else:
+            print("\n❌ Данные не собраны")
+
+    except Exception as e:
+        print(f"\n❌ ОШИБКА: {e}")
+        import traceback
+        traceback.print_exc()
+
+    finally:
+        scraper.close()

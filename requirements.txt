@@ -1,0 +1,13 @@
+# Semantic search
+streamlit
+pandas
+plotly
+sentence-transformers
+faiss-cpu
+transformers
+torch
+
+# Parser
+selenium
+webdriver-manager
+requests

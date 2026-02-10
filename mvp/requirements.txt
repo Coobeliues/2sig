@@ -1,0 +1,10 @@
+# Минимальные зависимости для MVP
+pandas>=2.0.0
+numpy>=1.24.0
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.4
+tqdm>=4.65.0
+
+# Опционально для веб-интерфейса (app.py):
+# streamlit>=1.25.0
+# plotly>=5.14.0
