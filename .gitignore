@@ -10,6 +10,10 @@ ENV/
 build/
 dist/
 *.egg-info/
+mvp/
+nlp_analysis/
+semantic/
+
 
 # Jupyter Notebook
 .ipynb_checkpoints

@@ -1,6 +1,4 @@
-"""
-Конвертация последнего JSON -> CSV и проверка полноты данных
-"""
+
 import json
 import csv
 import sys

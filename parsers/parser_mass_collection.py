@@ -1,7 +1,4 @@
-"""
-МАССОВЫЙ СБОР ОТЗЫВОВ 2GIS
-Собирает отзывы со всех заведений определенных категорий (кафе, рестораны, бары и т.д.)
-"""
+
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
@@ -16,8 +13,10 @@ from dataclasses import dataclass, asdict
 import logging
 from datetime import datetime
 
+
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class Review:
@@ -27,6 +26,7 @@ class Review:
     text: str
     date: str
     is_verified: bool
+
 
 @dataclass
 class Place:
@@ -41,8 +41,9 @@ class Place:
     url: str
     reviews: List[Review]
 
+
+
 class TwoGISMassParser:
-    """Массовый сбор отзывов с заведений 2GIS"""
 
     def __init__(self, headless: bool = True):
         self.driver = self._init_driver(headless)
@@ -51,6 +52,7 @@ class TwoGISMassParser:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
             'Accept': 'application/json',
         })
+ 
 
     def _init_driver(self, headless: bool):
         options = Options()
@@ -70,7 +72,6 @@ class TwoGISMassParser:
         return driver
 
     def search_places(self, city: str, categories: List[str], max_per_category: int = 50) -> List[Dict]:
-        """Ищет заведения по категориям"""
         all_places = []
 
         for category in categories:
@@ -119,17 +120,19 @@ class TwoGISMassParser:
                 continue
 
         logger.info(f"\n📊 Всего найдено {len(all_places)} уникальных заведений")
+
+
         return all_places
 
     def get_firm_id_from_url(self, url: str) -> str:
-        """Извлекает ID фирмы из URL"""
         match = re.search(r'/firm/(\d+)', url)
         if match:
             return match.group(1)
+        
+
         return None
 
     def get_all_reviews_via_api(self, firm_id: str) -> List[dict]:
-        """Получает ВСЕ отзывы через API 2GIS"""
         all_reviews = []
         offset = 0
         limit = 50
@@ -177,10 +180,10 @@ class TwoGISMassParser:
                 logger.debug(f"Ошибка API: {e}")
                 break
 
+
         return all_reviews
 
     def parse_reviews(self, reviews_data: List[dict]) -> List[Review]:
-        """Парсит отзывы из API данных"""
         reviews = []
 
         for review_data in reviews_data:
@@ -215,10 +218,10 @@ class TwoGISMassParser:
             except Exception as e:
                 continue
 
+
         return reviews
 
     def get_place_data(self, place_info: Dict) -> Place:
-        """Получение данных места"""
         firm_id = place_info['firm_id']
         url = place_info['url']
 
@@ -283,10 +286,10 @@ class TwoGISMassParser:
 
         except Exception as e:
             logger.error(f"    ❌ Ошибка: {e}")
+
             return None
 
     def collect_mass_reviews(self, city: str, categories: List[str], max_per_category: int = 50) -> List[Place]:
-        """Массовый сбор отзывов"""
         logger.info("=" * 70)
         logger.info("🚀 МАССОВЫЙ СБОР ОТЗЫВОВ 2GIS")
         logger.info("=" * 70)
@@ -315,14 +318,14 @@ class TwoGISMassParser:
 
         logger.info(f"\n✅ Собрано {len(all_places)} заведений с отзывами")
 
-        # Статистика
-        total_reviews = sum(len(p.reviews) for p in all_places)
+        # Статистика 
+        total_reviews = sum(len(p.reviews) for p in all_places) 
         logger.info(f"📊 Всего отзывов: {total_reviews}")
+
 
         return all_places
 
     def save_to_json(self, places: List[Place], filename: str):
-        """Сохранение в JSON"""
         data = [asdict(place) for place in places]
 
         with open(filename, 'w', encoding='utf-8') as f:
@@ -331,16 +334,16 @@ class TwoGISMassParser:
         logger.info(f"\n💾 Данные сохранены в {filename}")
 
     def close(self):
-        """Закрытие браузера"""
         self.driver.quit()
 
-# ===================================================================
-# ЗАПУСК
+# ==================================================================
+# ЗАПУСК   
 # ===================================================================
 if __name__ == "__main__":
     import sys
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 
     # Настройки сбора
     CITY = "almaty"  # Город для поиска
@@ -415,3 +418,8 @@ if __name__ == "__main__":
     finally:
         scraper.close()
         logger.info("👋 Завершено!")
+
+    
+
+ 
+ 

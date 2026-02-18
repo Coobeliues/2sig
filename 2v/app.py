@@ -1,6 +1,3 @@
-"""
-Запуск: streamlit run app.py
-"""
 
 import streamlit as st
 import pandas as pd
@@ -37,7 +34,7 @@ with st.spinner("⏳ Загрузка модели и данных..."):
 
 
 # Заголовок
-st.title("🔍 Умный поиск заведений 2GIS")
+st.title("🔍 Умный поиск  заведений 2GIS")
 st.markdown("""
 Найдите идеальное заведение по описанию!
 Система использует семантический поиск на основе анализа отзывов.
@@ -144,8 +141,8 @@ if search_button or query:
         else:
             st.success(f"✅ Найдено {len(results)} заведений за {elapsed*1000:.0f}ms")
 
-            # Табы для разных видов отображения
-            tab1, tab2, tab3 = st.tabs(["📋 Список", "📊 Графики", "🗺️ Детали"])
+            # Табы для разных видов отображения   
+            tab1, tab2, tab3 = st.tabs(["📋 Список", "📊 Графики", "🗺️ Детали"]) 
 
             with tab1:
                 # Отображение результатов списком
@@ -155,7 +152,7 @@ if search_button or query:
                         f"Релевантность: {row['final_score']:.3f}",
                         expanded=(idx == 0)
                     ):
-                        col1, col2 = st.columns([2, 1])
+                        col1, col2 = st.columns([2, 1]) 
 
                         with col1:
                             st.markdown(f"**📍 Адрес:** {row.get('address', 'N/A')}")
@@ -259,7 +256,7 @@ if search_button or query:
                 )
 
 
-# Футер
+#Футер
 st.markdown("---")
 st.markdown("""
 <div style='text-align: center; color: gray; font-size: 0.9em;'>
@@ -272,3 +269,4 @@ st.markdown("""
     total_places=len(search_engine.places_df),
     model_name=config.MODEL_NAME.split('/')[-1]
 ), unsafe_allow_html=True)
+

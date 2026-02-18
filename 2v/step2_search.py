@@ -1,5 +1,4 @@
-# Шаг 2: Поиск заведений
-# Загружает подготовленные данные и выполняет семантический поиск
+
 
 import pandas as pd
 import numpy as np
@@ -17,10 +16,8 @@ import config
 
 
 class SemanticSearch:
-    """Класс для семантического поиска заведений"""
 
     def __init__(self):
-        """Инициализация: загрузка модели и данных из кэша"""
         print("=" * 80)
         print("ИНИЦИАЛИЗАЦИЯ ПОИСКА")
         print("=" * 80)
@@ -35,7 +32,7 @@ class SemanticSearch:
         if not config.INDEX_CACHE.exists():
             raise FileNotFoundError(
                 f"Индекс не найден: {config.INDEX_CACHE}\n"
-                f"   Сначала запустите: python step1_prepare.py"
+                f"   Сначала запстите: python step1_prepare.py"
             )
 
         if not config.METADATA_CACHE.exists():
@@ -64,11 +61,13 @@ class SemanticSearch:
 
         self.model = SentenceTransformer(config.MODEL_NAME, device=device)
 
+
         if device == "cuda" and getattr(config, "USE_FP16", True):
             self.model = self.model.half()
             print("FP16 включён")
 
         print(f"Модель загружена за {time.time() - start:.1f} сек")
+
 
         # Загрузка индекса
         print(f"\nЗагрузка FAISS индекса...")
@@ -86,7 +85,7 @@ class SemanticSearch:
         self.places_df = metadata['places']
         self.text_column = metadata['text_column']
 
-        # Убираем отзывы без place_firm_id
+        # Убираем отывы без place_firm_id
         initial_count = len(self.reviews_df)
         self.reviews_df = self.reviews_df[
             self.reviews_df['place_firm_id'].notna()
@@ -98,9 +97,9 @@ class SemanticSearch:
         print(f"Загружено:")
         print(f"   Отзывов: {len(self.reviews_df):,}")
         print(f"   Заведений: {len(self.places_df):,}")
-
+  
         # Кэш для последних результатов
-        self._last_relevant_reviews = None
+        self._last_relevant_reviews = None 
         self._last_query_sentiment = None
 
         print("\n" + "=" * 80)
@@ -113,7 +112,7 @@ class SemanticSearch:
         return result['label'].lower()
 
     def search_reviews(self, query: str, top_k: int = 200) -> pd.DataFrame:
-        """Поиск релевантных отзывов по запросу. Возвращает DataFrame с отзывами и scores."""
+        """Поиск релевантных отзывов по запрсу. Возвращает DataFrame с отзывами и scores."""
         query = normalize_text(query)
 
         if len(query) == 0:
@@ -145,6 +144,7 @@ class SemanticSearch:
         valid_distances = distances[0][valid_mask]
 
         if len(valid_indices) == 0:
+
             return pd.DataFrame()
 
         results = self.reviews_df.iloc[valid_indices].copy()
@@ -154,6 +154,7 @@ class SemanticSearch:
         results = results[results['place_firm_id'].notna()].copy()
 
         if results.empty:
+
             return results
 
         # Sentiment Analysis для отзывов
@@ -174,7 +175,7 @@ class SemanticSearch:
 
             if query_sentiment == "negative":
                 if review_sent == "positive":
-                    return 0.05  # Почти убиваем позитивные отзывы
+                    return 0.05  # Почти убваем позитивные отзывы
                 elif review_sent == "negative":
                     return 2.5   # Сильно бустим негативные
                 else:  # neutral
@@ -184,7 +185,7 @@ class SemanticSearch:
                 if review_sent == "negative":
                     return 0.05  # Почти убиваем негативные
                 elif review_sent == "positive":
-                    return 2.0   # Бустим позитивные
+                    return 2.0   # Бустим позитвные
                 else:  # neutral
                     return 0.7
 
@@ -205,7 +206,9 @@ class SemanticSearch:
         results = results[results['final_review_score'] > min_score]
 
         if results.empty:
+
             return results
+
 
         # Возвращаем top_k лучших
         return results.nlargest(top_k, 'final_review_score')
@@ -238,7 +241,7 @@ class SemanticSearch:
             relevant_reviews
             .sort_values("final_review_score", ascending=False)
             .groupby("place_firm_id")
-            .head(15)  # Максимум 15 отзывов на заведение
+            .head(15)  # Максимум 15 отзвов на заведение
         )
 
         self._last_relevant_reviews = relevant_reviews.copy()
@@ -266,6 +269,7 @@ class SemanticSearch:
 
         if len(place_scores) == 0:
             print(f"Не найдено заведений с минимум {min_reviews} релевантными отзывами")
+
             return pd.DataFrame()
 
         # 4. Вычисляем финальный score
@@ -284,7 +288,7 @@ class SemanticSearch:
                     (place_scores['positive_reviews'] + place_scores['neutral_reviews'] + 1)
                 )
             else:
-                # Для позитивных/нейтральных: больше позитивных = лучше
+                # Для позитивных/нейтральных: больше позиивных = лучше
                 sentiment_ratio = (
                     (place_scores['positive_reviews'] + 1) /
                     (place_scores['negative_reviews'] + 1)
@@ -334,6 +338,7 @@ class SemanticSearch:
         ]
         available_columns = [col for col in columns if col in results.columns]
 
+
         return results[available_columns].reset_index(drop=True)
 
     def get_place_highlights(
@@ -352,6 +357,7 @@ class SemanticSearch:
         ]
 
         if len(place_reviews) == 0:
+
             return []
 
         # Берём топ по финальному score
@@ -372,6 +378,7 @@ class SemanticSearch:
     def get_place_sentiment_stats(self, place_firm_id: int) -> dict:
         """Получить статистику sentiment для заведения"""
         if self._last_relevant_reviews is None:
+
             return {'positive': 0, 'negative': 0, 'neutral': 0}
 
         place_reviews = self._last_relevant_reviews[
@@ -379,6 +386,7 @@ class SemanticSearch:
         ]
 
         if place_reviews.empty:
+
             return {'positive': 0, 'negative': 0, 'neutral': 0}
 
         return {
@@ -396,6 +404,8 @@ def sentiment_to_weight(label: str) -> float:
         "neutral": 1.0,
         "negative": 0.8  # Базовый вес, alignment сделает основную работу
     }
+
+
     return weights.get(label, 1.0)
 
 
@@ -413,14 +423,15 @@ def normalize_text(text: str) -> str:
     # Убираем лишние пробелы
     text = " ".join(text.split())
 
+
     return text
 
 
 def interactive_search():
-    """Интерактивный поиск в терминале"""
     print("\n" + "=" * 80)
     print("ИНТЕРАКТИВНЫЙ ПОИСК ЗАВЕДЕНИЙ")
     print("=" * 80)
+
 
     try:
         search = SemanticSearch()
@@ -458,10 +469,11 @@ def interactive_search():
                 print("\nНичего не найдено")
                 print("   Попробуйте изменить запрос")
                 continue
-
-            print(f"\nНайдено {len(results)} заведений за {elapsed*1000:.0f}ms\n")
+ 
+            print(f"\nНайдено {len(results)} заведений за {elapsed*1000:.0f}ms\n")  
             print("=" * 80)
 
+ 
             for idx, row in results.iterrows():
                 name = row.get('name', 'N/A')
                 print(f"\n{idx + 1}. {name}")
@@ -498,7 +510,7 @@ def interactive_search():
                         print(f"   > {h}")
 
             print("\n" + "=" * 80)
-
+ 
     except KeyboardInterrupt:
         print("\n\nПрервано пользователем")
     except Exception as e:
@@ -508,7 +520,6 @@ def interactive_search():
 
 
 def demo_search():
-    """Демо поиск с примерами"""
     print("\n" + "=" * 80)
     print("ДЕМО: Автоматический поиск")
     print("=" * 80)
@@ -550,6 +561,7 @@ def demo_search():
 
             input("\nНажмите Enter для следующего запроса...")
 
+
     except Exception as e:
         print(f"\nОшибка: {e}")
         import traceback
@@ -557,8 +569,7 @@ def demo_search():
 
 
 def main():
-    """Главная функция"""
-    print("\n" + "=" * 80)
+    print("\n" + "=" * 80) 
     print("SEMANTIC SEARCH - ПОИСК ЗАВЕДЕНИЙ")
     print("=" * 80)
 
@@ -579,3 +590,22 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+  

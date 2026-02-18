@@ -1,12 +1,7 @@
 """
-Шаг 1: Подготовка данных (GPU)
-Создание эмбеддингов и FAISS индекса
-Запускается один раз, результаты сохраняются в cache/
-
-- SentenceTransformer работает на GPU (CUDA) если доступно
-- FP16 (half precision) для ускорения на RTX 4090
-- Явный выбор GPU через CUDA_VISIBLE_DEVICES
-- Нормализация делается один раз для cosine/inner product
+- FP16 (half precision)  RTX 4090
+CUDA_VISIBLE_DEVICES
+- Нормализация  один для cosine/inner product
 """
 
 import os
@@ -25,7 +20,7 @@ import config
 
 
 # GPU / Runtime settings
-# =========================
+# ================
 
 def _set_gpu_visibility():
     """
@@ -45,6 +40,8 @@ def _set_gpu_visibility():
 
 
 def _get_device():
+
+    
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -66,7 +63,7 @@ def _print_gpu_info():
 
 
 # Data load
-# =======================
+# =====================
 
 def load_data():
     
@@ -110,12 +107,13 @@ def load_data():
 
     print(f"   Финальное количество: {len(reviews):,}")
 
+
     return reviews, places, text_col
 
 
 
 # Embeddings (GPU)
-#=======================
+#======================
 
 def _load_model():
     """Загрузка модели с GPU/FP16"""
@@ -140,6 +138,7 @@ def _load_model():
     print(f"   Размерность эмбеддингов: {model.get_sentence_embedding_dimension()}")
     print(f"   Устройство модели: {model.device}")
 
+
     return model
 
 
@@ -158,7 +157,9 @@ def create_embeddings(reviews, text_col):
             with open(config.EMBEDDINGS_CACHE, 'rb') as f:
                 embeddings = pickle.load(f)
             print(f"Загружено {len(embeddings):,} эмбеддингов из кэша")
+
             return embeddings
+        
 
     
     model = _load_model()
@@ -208,6 +209,7 @@ def create_embeddings(reviews, text_col):
         pickle.dump(embeddings, f)
 
     print("Сохранено")
+
 
     return embeddings
 

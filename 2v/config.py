@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+
 #Пути
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
@@ -24,6 +25,7 @@ METADATA_CACHE = CACHE_DIR / "metadata.pkl"
 
 # Настройки модели
 MODEL_NAME = "sentence-transformers/LaBSE"  #Мультияз модель
+
 #Альтер:
 # MODEL_NAME = "DeepPavlov/rubert-base-cased-sentence"  # Только русский, быстрее
 # MODEL_NAME = "all-MiniLM-L6-v2"  # Легкая, быстрая
@@ -40,6 +42,7 @@ USE_FP16 = True     # включать FP16 (RTX 4090 — обязательно
 BATCH_SIZE = 768
 
 
+
 # Настройки поиска
 DEFAULT_TOP_K = 10  # Количество резов
 DEFAULT_MIN_REVIEWS = 3  # Минимум релевантных отзывов для заведения
@@ -49,7 +52,13 @@ DEFAULT_AGGREGATION = "weighted"  # mean, max, weighted
 TEXT_COLUMN = "text"  # Колонка с очищенным текстом (с эмодзи)
 # Если не найдена, будет использована "review_text"
 
+
 print("Конфигурация загружена")
 print(f"   Данные: {DATA_DIR}")
 print(f"   Кэш: {CACHE_DIR}")
 print(f"   Модель: {MODEL_NAME}")
+
+
+
+
+

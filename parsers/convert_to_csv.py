@@ -1,6 +1,4 @@
-"""
-Конвертация JSON -> CSV и проверка полноты данных
-"""
+
 import json
 import csv
 import sys
@@ -8,12 +6,13 @@ import io
 
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 
+
 # Загрузка данных
 print("📂 Загружаю данные...")
 with open('2gis_mass_reviews_almaty_20251006_163719.json', 'r', encoding='utf-8') as f:
     data = json.load(f)
 
-print(f"✅ Загружено {len(data)} заведений\n")
+print(f"✅ Загруено {len(data)} заведений\n")
 
 # Проверка полноты
 print("=" * 70)
@@ -27,10 +26,10 @@ print(f"\n📈 Ожидалось отзывов (по 2GIS): {total_expected:,}
 print(f"✅ Собрано отзывов: {total_collected:,}")
 print(f"📊 Процент покрытия: {total_collected / total_expected * 100:.1f}%")
 
-# Анализ отфильтрованных
+# Анализ отфильтованных
 filtered_count = total_expected - total_collected
 print(f"\n❌ Отфильтровано: {filtered_count:,} отзывов")
-print(f"   Причина: текст короче 30 символов (оценки без текста)")
+print(f"   Причина: тект короче 30 символов (оценки без текста)")
 
 # Статистика по длине текста
 all_reviews = [r for p in data for r in p['reviews']]
@@ -53,6 +52,7 @@ print(f"\n📝 Примеры длинных отзывов:")
 long_reviews = sorted(all_reviews, key=lambda r: len(r['text']), reverse=True)[:3]
 for i, r in enumerate(long_reviews, 1):
     print(f"   {i}. ({len(r['text'])} символов) \"{r['text'][:100]}...\"")
+
 
 # Конвертация в CSV
 print("\n" + "=" * 70)
@@ -80,6 +80,7 @@ with open('places.csv', 'w', encoding='utf-8', newline='') as f:
         'url'
     ])
 
+
     for place in data:
         writer.writerow([
             place['firm_id'],
@@ -93,6 +94,7 @@ with open('places.csv', 'w', encoding='utf-8', newline='') as f:
             place['phone'],
             place['url']
         ])
+
 
 print(f"✅ Сохранено {len(data)} заведений в places.csv")
 
@@ -184,6 +186,7 @@ print("\n" + "=" * 70)
 print("🔍 ПРОВЕРКА ЛИМИТА ДЛИНЫ ТЕКСТА")
 print("=" * 70)
 
+
 truncated = [r for r in all_reviews if r['text'].endswith('...') or len(r['text']) == 500]
 print(f"\nОбрезанных текстов (500 символов): {len(truncated)}")
 if truncated:
@@ -195,3 +198,6 @@ else:
     print("✅ Обрезанных текстов не обнаружено!")
 
 print("\n✅ Все проверки завершены!")
+
+
+
